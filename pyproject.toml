@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dream-rsi"
+version = "0.1.0"
+description = "DREAM-RSI: recursive self-improvement through evolving worlds"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+# Evaluators of the math and Lasso tasks, and libraries candidate programs commonly import.
+tasks = ["numpy", "scipy", "psutil", "scikit-learn"]
+# Client side of the KernelBench tasks; the GPU server has its own setup (tasks/kernelbench/README.md).
+kernel = ["requests", "pyyaml"]
+claude = ["claude-agent-sdk"]
+dev = ["pytest"]
+
+[project.scripts]
+dream-rsi = "dream_rsi.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["dream_rsi*"]
+
+[tool.setuptools.package-data]
+dream_rsi = ["prompts/*.txt", "policy/discovered/*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["integration: runs a real coding agent and makes API calls (run with -m integration)"]
+addopts = "-m 'not integration'"

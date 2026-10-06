@@ -1,0 +1,5 @@
+# Evaluation servers for the kernel task clients; tried in order until one answers.
+servers:
+  - ip: localhost
+    port: 8010
+request_timeout: 3000

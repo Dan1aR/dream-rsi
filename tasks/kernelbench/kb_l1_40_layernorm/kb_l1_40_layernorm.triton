@@ -1,0 +1,55 @@
+You are an expert Triton engineer optimizing a KernelBench task.
+---
+1. Problem Definition
+1.1 Task Description
+You are optimizing KernelBench problem `LayerNorm` (level 1, id 40) as gpukernel task `kb_l1_40_layernorm`.
+
+Source reference: `KernelBench/level1/40_LayerNorm.py`
+
+Your implementation must preserve the public behavior of the reference model while optimizing end-to-end latency on GPU.
+
+1.2 Required Entry Point (strict)
+- You must define `class ModelNew(torch.nn.Module)`.
+- `ModelNew.forward(self, *data)` is the only accepted entry point.
+- `forward` receives tensors from `get_inputs()` and must return the same output as:
+  `Model(*get_init_inputs())(*data)`
+- You may define helper Triton kernels/functions, but final model entry must be `ModelNew`.
+
+---
+2. Optimization Goal
+- Primary metric: `score = 1 / geomean(benchmark latencies)` (higher is better).
+- Optimize for practical GPU throughput and stable end-to-end performance.
+- Preserve correctness and numerical stability.
+
+---
+3. Implementation Guidelines
+3.1 Triton-first policy
+- Use Triton kernels as the primary optimization method.
+- Do not use `torch` high-level compute APIs as the core optimized path.
+- Avoid `torch.compile` as the main solution.
+
+3.2 Iterative evolution constraints
+- Prefer incremental improvements over full rewrites.
+- Focus on one major optimization theme per candidate.
+- Do not introduce persistent global cache/state that leaks across evaluations.
+
+---
+4. Output Format (strict)
+- Return one and only one complete Python file.
+- No markdown, no explanation text.
+- Start with `# EVOLVE-BLOCK-START` and end with `# EVOLVE-BLOCK-END`.
+
+# EVOLVE-BLOCK-START
+import torch
+import torch.nn as nn
+import triton
+import triton.language as tl
+
+class ModelNew(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, *data):
+        raise NotImplementedError
+
+# EVOLVE-BLOCK-END

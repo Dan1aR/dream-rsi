@@ -1,0 +1,26 @@
+# Format: go/third-party-metadata (also readable as plain text)
+name: "KernelBench"
+description:
+    "Reference PyTorch models of four KernelBench problems. They seed the kb_* "
+    "tasks and serve as the correctness and timing reference for the "
+    "evaluation server."
+
+third_party {
+  identifier {
+    type: "Git"
+    value: "https://github.com/ScalingIntelligence/KernelBench"
+    primary_source: true
+    version: "423217d9fda91e0c2d67e4a43bf62f96f6d104f1"
+  }
+  version: "423217d9fda91e0c2d67e4a43bf62f96f6d104f1"
+  last_upgrade_date { year: 2026 month: 10 day: 6 }
+  license_type: NOTICE
+  local_modifications:
+    "Only four problem files are vendored, each renamed to "
+    "<task>/init_program.py:\n"
+    "  kb_l3_11_vgg16/init_program.py      <- KernelBench/level3/11_VGG16.py\n"
+    "  kb_l1_40_layernorm/init_program.py  <- KernelBench/level1/40_LayerNorm.py\n"
+    "  kb_l2_8_convdiv/init_program.py     <- KernelBench/level2/8_Conv3d_Divide_Max_GlobalAvgPool_BiasAdd_Sum.py\n"
+    "  kb_l2_43_convmax/init_program.py    <- KernelBench/level2/43_Conv3d_Max_LogSumExp_ReLU.py\n"
+    "File contents are unmodified."
+}
