@@ -1,26 +1,3 @@
 __pycache__/
 *.py[cod]
-*.egg-info/
-build/
-dist/
-.pytest_cache/
-
-# Local settings and API keys
-.env
-
-# Run outputs
-workspace/
-
-# Downloaded by tasks/lasso_path/setup.sh
-tasks/lasso_path/eigen/
-
-# SimpleTES task files (AGPL-3.0), downloaded by scripts/fetch_tasks.sh
-tasks/sums_diffs/
-tasks/autocorrelation_third/
-tasks/circle_packing_26/
-tasks/circle_packing_32/
-tasks/lasso_path/evaluator.py
-tasks/lasso_path/init_program.py
-tasks/lasso_path/generate_results.py
-tasks/lasso_path/lasso_path.txt
-tasks/lasso_path/LICENSE.SimpleTES
+.DS_Store
