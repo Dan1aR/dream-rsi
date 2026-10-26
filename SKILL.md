@@ -35,6 +35,7 @@ locations and record the result. Every command takes the study directory first:
 | `brief ID` | lead | Print the complete worker prompt for an open attempt |
 | `record ID --value X --evidence E` | worker, lead | Record a measured value |
 | `record ID --error TEXT --evidence E` | worker, lead | Record a failed attempt |
+| `handoff ID --run R` | worker | Register a started measurement that the lead collects when it ends |
 | `close ID --reason R` / `reopen ID` | lead | Stop or resume extending a node and its subtree |
 | `summary` | lead | Budget, slots, best result, every branch's trajectory, what can be extended |
 | `show` | all | The whole tree: value, change vs parent, proposal title, best, closed marks |
@@ -68,13 +69,26 @@ A new attempt's input starts as a copy of its parent's input.
    measurement procedure, run to completion (shortened runs, subsets or extrapolation
    only if the procedure itself defines them); what the input is and how it is
    applied; where each attempt works and measures (by default `attempt_NNNN/work/`; for
-   shared resources, how parallel attempts avoid colliding); what an attempt may
-   change; and other constraints. The metric and the procedure are fixed for the
+   shared resources, how parallel attempts avoid colliding); whether the worker waits
+   for its measurement or hands it off (for runs too long for an agent to wait on),
+   and for handed-off runs how to tell that a run finished and where its value is;
+   what an attempt may change; and other constraints. The metric and the procedure are fixed for the
    whole study: changing either makes earlier values incomparable, so start a new
    study instead.
 3. Run `init`. Measure the baseline yourself: write `attempt_0000/proposal.md` (what
    the baseline is) and its input, measure as the problem file prescribes, and
    `record 0000`.
+
+## Resuming a study (lead)
+
+The study directory holds the whole state. In a new session, or after you lose
+context, read this skill completely again, then the problem file, `guidance.md` if it
+exists, `summary` and `show`. `summary` lists every open attempt as handed off or
+with its worker. For a handed-off attempt, find out whether its run is still going,
+finished, or lost, and continue as for any handed-off run; a lost run is an
+environment failure. An attempt with its worker from an earlier session has no
+worker any more: start a new worker on it with the same `brief`. Then hold a
+decision round.
 
 ## Lead prompt (adapted from Listing 2)
 
@@ -103,8 +117,9 @@ recorded measurements (`summary`, `show`, the attempts' files), not from what
 proposals or workers claim. Before you build on a new best value, open its evidence
 and check that it was measured as the problem file prescribes. If it was not, replace
 the record with `record ID --force --error "<what was wrong>" --evidence "<what you
-checked>"`; this is the only use of `--force`. Never record a value you did not
-measure, and never edit a worker's files.
+checked>"`; this is the only use of `--force`. Record a value only from a
+measurement you made yourself or from a handed-off run you checked to its end, and
+never edit a worker's files.
 
 ### Required branch trajectory and failure interpretation
 
@@ -162,9 +177,18 @@ For each selected attempt run `add --parent <id>`, then start a worker whose com
 prompt is exactly the output of `brief <id>`: nothing added, nothing summarized.
 Start the batch's workers in parallel with whatever runs agents in this environment
 (subagents, OpenCode workers, other agent sessions). With one slot, or with no way to
-start workers, run the attempt yourself by the worker prompt. When a worker finishes,
-check that its attempt is recorded; if the worker ended without recording, record the
-failure yourself with `--error`, using its transcript or logs as evidence.
+start workers, run the attempt yourself by the worker prompt.
+
+When a worker finishes, its attempt is recorded or handed off. If it is neither: when
+the worker reached a failure, record that failure with `--error` and its transcript
+or logs as evidence; when the worker was cut off (crash, limits, end of session),
+start a new worker on the same attempt with the same `brief`.
+
+A handed-off attempt stays open and keeps its slot until you record it. Wait for its
+run with the environment's completion notifications or scheduled wake-ups, not by
+repeated polling. When the run ends, check that it ran the procedure of the problem
+file to its end, then record its value - or its failure - with the run id and the
+place you read the result as evidence. The decision round follows that record.
 
 ### Hard constraints
 
@@ -261,9 +285,13 @@ If the attempt failed -- it did not run, crashed, or broke a constraint of the p
 
 Record only a value this attempt measured -- never an estimate, a partial run, or a value from another attempt. The tool refuses a value whose input is identical to one already measured: that would be a repeat.
 
+If `$problem_file` says measurements are handed off, start the measurement as it prescribes, check that it started correctly, and register it instead of waiting; the lead records the value when the run ends:
+
+    $cli $study_dir handoff $node_id --run "<run id, and where its result will appear>"
+
 ## Files
 
-Write only `$node_dir/proposal.md`, `$node_dir/$input`, your measurement files (logs, outputs) under `$node_dir/`, and the working location `$problem_file` assigns to your attempt (`$node_dir/work/` if it assigns none). Everything else is read-only. Of the `$cli` commands, run only the read-only `show`, `summary` and `export`, and `record` for your own attempt.
+Write only `$node_dir/proposal.md`, `$node_dir/$input`, your measurement files (logs, outputs) under `$node_dir/`, and the working location `$problem_file` assigns to your attempt (`$node_dir/work/` if it assigns none). Everything else is read-only. Of the `$cli` commands, run only the read-only `show`, `summary` and `export`, and `record` or `handoff` for your own attempt. If `$node_dir` already holds work beyond the copied input -- a proposal, changes to the input, other files -- it comes from an interrupted earlier worker on this attempt: it is not a measured result, and you reuse it only after checking it.
 
 ## Note:
 Never execute pkill, kill, killall, or terminate unrelated processes.

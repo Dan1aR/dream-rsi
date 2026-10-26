@@ -9,7 +9,7 @@ Study directory layout:
   problem.md            problem statement and the fixed measurement procedure
   guidance.md           optional cumulative direction guidance kept by the lead
   attempt_NNNN/
-    meta.json           id, parent, status, closed, input hash, evidence
+    meta.json           id, parent, status, closed, handed-off run, input hash, evidence
     proposal.md         the attempt's proposal, written by its worker
     <input>             the attempt's input: a parameters file, a program, a directory
     eval/score.json     {"metric", "value", "evidence"} after a successful measurement
@@ -166,6 +166,7 @@ class Study:
             "record_seq": None,
             "evidence": None,
             "input_sha256": None,
+            "run": None,
             "closed": None,
         })
         return d
@@ -308,6 +309,24 @@ class Study:
             # Removed only after meta.json points at the new result, so readers never miss a file.
             stale.unlink(missing_ok=True)
 
+    def handoff(self, nid, run: str) -> None:
+        """Mark an open attempt's measurement as started and left to the lead to collect."""
+        nid = norm_id(nid)
+        if not run.strip():
+            raise StudyError("--run is required: the run id and where its result will appear")
+        with self._locked():
+            meta = self._meta(nid)
+            if meta["status"] != "open":
+                raise StudyError(f"{nid} is already recorded ({meta['status']})")
+            d = self.node_dir(nid)
+            proposal = d / "proposal.md"
+            if not proposal.is_file() or not proposal.read_text(encoding="utf-8").strip():
+                raise StudyError(f"{nid} has no proposal.md")
+            if not (d / self.config["input"]).exists():
+                raise StudyError(f"{nid} has no input {self.config['input']}")
+            meta["run"] = run
+            _write_json(d / "meta.json", meta)
+
     def close(self, nid, reason: str) -> None:
         nid = norm_id(nid)
         if nid == BASELINE:
@@ -335,7 +354,7 @@ class Study:
     def _line(self, n: dict, nodes: dict[str, dict], best: dict | None) -> str:
         parent = nodes.get(n["parent"]) if n["parent"] else None
         if n["status"] == "open":
-            result = "… open"
+            result = f"… running: {_first_line(n['run'], 60)}" if n["run"] else "… open"
         elif n["status"] == "failed":
             result = f"✗ {_first_line(n['error'], 60)}"
         else:
@@ -428,8 +447,10 @@ class Study:
             if not busy and not nodes[root_id]["closed"]:
                 extendable.append(root_id)
         out.append("")
-        out.append("open attempts: " + (", ".join(f"{k} (parent {nodes[k]['parent']})" for k in open_ids)
-                                         or "none"))
+        out.append("open attempts: " + ("" if open_ids else "none"))
+        for k in open_ids:
+            who = f"handed off: {_first_line(nodes[k]['run'])}" if nodes[k]["run"] else "with its worker"
+            out.append(f"  {k} (parent {nodes[k]['parent']}) — {who}")
         out.append("can extend: baseline (new direction)"
                    + (f"; branches {', '.join(extendable)} (any measured, unclosed node in them)"
                       if extendable else ""))
@@ -512,6 +533,9 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--error")
     s.add_argument("--evidence", required=True, help="command, log path or run id of the measurement")
     s.add_argument("--force", action="store_true", help="overwrite an existing record (lead only)")
+    s = sub.add_parser("handoff", help="register a started measurement for the lead to collect")
+    s.add_argument("id")
+    s.add_argument("--run", required=True, help="run id and where its result will appear")
     s = sub.add_parser("close", help="stop extending a node and its subtree")
     s.add_argument("id")
     s.add_argument("--reason", required=True)
@@ -537,6 +561,8 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write(st.brief(a.id))
         elif a.cmd == "record":
             st.record(a.id, value=a.value, error=a.error, evidence=a.evidence, force=a.force)
+        elif a.cmd == "handoff":
+            st.handoff(a.id, a.run)
         elif a.cmd == "close":
             st.close(a.id, a.reason)
         elif a.cmd == "reopen":
